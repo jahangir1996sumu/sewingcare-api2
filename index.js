@@ -1,17 +1,15 @@
+require("dotenv").config();
 const express = require("express");
 const axios = require("axios");
-require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// ✅ Airtable Config
+// ✅ Airtable Token & API Secret
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN;
-
-// ✅ আমাদের নিজের সিকিউরিটি টোকেন (অ্যাপ থেকে রিকোয়েস্ট এ লাগবে)
 const API_SECRET = process.env.API_SECRET || "sewingcare-secure-token";
 
-// ✅ ব্র্যান্ড ও ল্যাঙ্গুয়েজ অনুযায়ী Base IDs
+// ✅ Base IDs for Brands & Languages
 const BASE_IDS = {
     juki: {
         bangla: "appkY8QFeEL7KyDft",
@@ -21,13 +19,13 @@ const BASE_IDS = {
         bangla: "app6xNEn1dsDSap66",
         english: "appqaVn3WoCI4wmZm"
     }
-    // ✅ ভবিষ্যতে অন্য ব্র্যান্ড এখানে সহজেই যোগ করা যাবে
+    // ✅ Future brands can be added here
 };
 
-// ✅ টেবিল নাম (Airtable এর)
+// ✅ Airtable Table Name
 const TABLE_NAME = "ErrorCodes";
 
-// ✅ Middleware for security
+// ✅ Security Middleware
 app.use((req, res, next) => {
     const clientToken = req.headers["x-api-key"];
     if (!clientToken || clientToken !== API_SECRET) {
@@ -36,7 +34,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// ✅ Main API Endpoint
+// ✅ API Endpoint
 app.get("/api/error", async (req, res) => {
     const { brand, lang, code } = req.query;
 

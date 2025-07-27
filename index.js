@@ -21,7 +21,7 @@ const BASE_IDS = {
 
 const TABLE_NAME = "ErrorCodes";
 
-// ✅ Middleware (Only for main API)
+// ✅ Middleware for secure API
 app.use("/api/error", (req, res, next) => {
     const clientToken = req.headers["x-api-key"];
     if (!clientToken || clientToken !== API_SECRET) {
@@ -30,7 +30,7 @@ app.use("/api/error", (req, res, next) => {
     next();
 });
 
-// ✅ Secure API Endpoint
+// ✅ Main Secure API
 app.get("/api/error", async (req, res) => {
     const { brand, lang, code } = req.query;
 
@@ -61,6 +61,7 @@ app.get("/api/error", async (req, res) => {
 
         res.json({
             code: record.error || "",
+            model: record.model || "",
             cause: record.Cause || "",
             instructions: record.Instructions || ""
         });
@@ -69,7 +70,7 @@ app.get("/api/error", async (req, res) => {
     }
 });
 
-// ✅ Public Test Endpoint (No API Key Required)
+// ✅ Public Test Endpoint
 app.get("/test", async (req, res) => {
     const brand = "juki";
     const lang = "bangla";
@@ -93,6 +94,7 @@ app.get("/test", async (req, res) => {
 
         res.json({
             code: record.error || "",
+            model: record.model || "",
             cause: record.Cause || "",
             instructions: record.Instructions || ""
         });

@@ -1,50 +1,81 @@
-const express = require('express');
-const axios = require('axios');
-const cors = require('cors');
+const express = require("express");
+const axios = require("axios");
+require("dotenv").config();
 
 const app = express();
-app.use(cors());
+const PORT = process.env.PORT || 10000;
 
-// Airtable Token from Render Environment Variables
+// ✅ Airtable Config
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN;
 
-// Airtable Base IDs
-const BASES = {
-    "juki-bangla": "appkY8QFeEL7KyDft",
-    "juki-english": "appNe00dE4xgwEYWU",
-    "brother-bangla": "app6xNEn1dsDSap66",
-    "brother-english": "appqaVn3WoCI4wmZm"
+// ✅ আমাদের নিজের সিকিউরিটি টোকেন (অ্যাপ থেকে রিকোয়েস্ট এ লাগবে)
+const API_SECRET = process.env.API_SECRET || "sewingcare-secure-token";
+
+// ✅ ব্র্যান্ড ও ল্যাঙ্গুয়েজ অনুযায়ী Base IDs
+const BASE_IDS = {
+    juki: {
+        bangla: "appkY8QFeEL7KyDft",
+        english: "appNe00dE4xgwEYWU"
+    },
+    brother: {
+        bangla: "app6xNEn1dsDSap66",
+        english: "appqaVn3WoCI4wmZm"
+    }
+    // ✅ ভবিষ্যতে অন্য ব্র্যান্ড এখানে সহজেই যোগ করা যাবে
 };
 
-const TABLE_NAME = "ErrorCodes"; // Airtable Table Name (must match)
+// ✅ টেবিল নাম (Airtable এর)
+const TABLE_NAME = "ErrorCodes";
 
-async function fetchData(baseId) {
+// ✅ Middleware for security
+app.use((req, res, next) => {
+    const clientToken = req.headers["x-api-key"];
+    if (!clientToken || clientToken !== API_SECRET) {
+        return res.status(401).json({ error: "Unauthorized request" });
+    }
+    next();
+});
+
+// ✅ Main API Endpoint
+app.get("/api/error", async (req, res) => {
+    const { brand, lang, code } = req.query;
+
+    if (!brand || !lang || !code) {
+        return res.status(400).json({ error: "brand, lang এবং code প্রদান করুন" });
+    }
+
+    const brandData = BASE_IDS[brand.toLowerCase()];
+    if (!brandData || !brandData[lang.toLowerCase()]) {
+        return res.status(400).json({ error: "Invalid brand or language" });
+    }
+
+    const baseId = brandData[lang.toLowerCase()];
+    const url = `https://api.airtable.com/v0/${baseId}/${TABLE_NAME}?filterByFormula={Code}="${code}"`;
+
     try {
-        const response = await axios.get(`https://api.airtable.com/v0/${baseId}/${TABLE_NAME}`, {
+        const response = await axios.get(url, {
             headers: {
                 Authorization: `Bearer ${AIRTABLE_TOKEN}`
             }
         });
-        return response.data.records.map(record => record.fields);
+
+        if (response.data.records.length === 0) {
+            return res.status(404).json({ error: "Error code not found" });
+        }
+
+        const record = response.data.records[0].fields;
+
+        res.json({
+            code: record.Code || "",
+            cause: record.Cause || "",
+            instructions: record.Instructions || ""
+        });
     } catch (error) {
-        console.error(error.response?.data || error.message);
-        return { error: "Failed to fetch data" };
+        res.status(500).json({ error: "Something went wrong", details: error.message });
     }
-}
-
-// Dynamic Routes for each base
-Object.keys(BASES).forEach(key => {
-    app.get(`/${key}`, async (req, res) => {
-        const data = await fetchData(BASES[key]);
-        res.json(data);
-    });
 });
 
-app.get('/', (req, res) => {
-    res.send('✅ SewingCare API is running!');
-});
-
-const PORT = process.env.PORT || 10000;
+// ✅ Start Server
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`✅ Server running on port ${PORT}`);
 });

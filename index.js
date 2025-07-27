@@ -1,15 +1,13 @@
-require("dotenv").config();
 const express = require("express");
 const axios = require("axios");
+require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// ✅ Airtable Token & API Secret
 const AIRTABLE_TOKEN = process.env.AIRTABLE_TOKEN;
 const API_SECRET = process.env.API_SECRET || "sewingcare-secure-token";
 
-// ✅ Base IDs for Brands & Languages
 const BASE_IDS = {
     juki: {
         bangla: "appkY8QFeEL7KyDft",
@@ -19,14 +17,12 @@ const BASE_IDS = {
         bangla: "app6xNEn1dsDSap66",
         english: "appqaVn3WoCI4wmZm"
     }
-    // ✅ Future brands can be added here
 };
 
-// ✅ Airtable Table Name
 const TABLE_NAME = "ErrorCodes";
 
-// ✅ Security Middleware
-app.use((req, res, next) => {
+// ✅ Middleware (Only for main API)
+app.use("/api/error", (req, res, next) => {
     const clientToken = req.headers["x-api-key"];
     if (!clientToken || clientToken !== API_SECRET) {
         return res.status(401).json({ error: "Unauthorized request" });
@@ -34,7 +30,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// ✅ API Endpoint
+// ✅ Secure API Endpoint
 app.get("/api/error", async (req, res) => {
     const { brand, lang, code } = req.query;
 
@@ -48,7 +44,7 @@ app.get("/api/error", async (req, res) => {
     }
 
     const baseId = brandData[lang.toLowerCase()];
-    const url = `https://api.airtable.com/v0/${baseId}/${TABLE_NAME}?filterByFormula={Code}="${code}"`;
+    const url = `https://api.airtable.com/v0/${baseId}/${TABLE_NAME}?filterByFormula={error}="${code}"`;
 
     try {
         const response = await axios.get(url, {
@@ -64,7 +60,7 @@ app.get("/api/error", async (req, res) => {
         const record = response.data.records[0].fields;
 
         res.json({
-            code: record.Code || "",
+            code: record.error || "",
             cause: record.Cause || "",
             instructions: record.Instructions || ""
         });
@@ -73,7 +69,38 @@ app.get("/api/error", async (req, res) => {
     }
 });
 
-// ✅ Start Server
+// ✅ Public Test Endpoint (No API Key Required)
+app.get("/test", async (req, res) => {
+    const brand = "juki";
+    const lang = "bangla";
+    const code = "01";
+
+    const baseId = BASE_IDS[brand][lang];
+    const url = `https://api.airtable.com/v0/${baseId}/${TABLE_NAME}?filterByFormula={error}="${code}"`;
+
+    try {
+        const response = await axios.get(url, {
+            headers: {
+                Authorization: `Bearer ${AIRTABLE_TOKEN}`
+            }
+        });
+
+        if (response.data.records.length === 0) {
+            return res.json({ message: "Sample error code not found" });
+        }
+
+        const record = response.data.records[0].fields;
+
+        res.json({
+            code: record.error || "",
+            cause: record.Cause || "",
+            instructions: record.Instructions || ""
+        });
+    } catch (error) {
+        res.status(500).json({ error: "Something went wrong", details: error.message });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`✅ Server running on port ${PORT}`);
 });
